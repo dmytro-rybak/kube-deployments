@@ -151,6 +151,7 @@ In real-world projects, we typically configure **private** Amazon Elastic Contai
 > [!NOTE]
 > In production, always use **private repositories** with proper authentication and permissions.
 
+> [!IMPORTANT]
 These repositories in our case should be created **only in the `us-east-1` region** because it will be necessary for further GitHub Actions configuration.
 
 Go to **AWS ECR** in the AWS Console and create two **public** repositories named `backend` and `frontend` in the **us-east-1** region. 
