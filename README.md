@@ -24,6 +24,7 @@ Before you begin, ensure you have the following tools installed on your machine:
 
 - Also you need an **AWS account** which is required to set up **AWS Secrets Manager** and **AWS ECR** for secure configuration management and container image storage.
 
+> [!IMPORTANT]
 > Make sure each of these tools is installed and properly configured before proceeding with the setup of **kube-deployments**.
 
 ## Links
@@ -67,7 +68,7 @@ This command adds the official Argo Helm chart repository to your local Helm con
 helm repo add argo https://argoproj.github.io/argo-helm
 ```
 
-This command deploys Argo CD into the `argocd` namespace using the specified Helm chart version (7.8.2).
+This command deploys Argo CD into the `argocd` namespace using the specified Helm chart version.
 
 ```bash
 helm install argocd argo/argo-cd --version 7.8.2 -n argocd --create-namespace --set dex.enabled=false --set notifications.enabled=false
@@ -135,3 +136,73 @@ Now, install the GitHub App for your Helm charts repository.
    - **GitHub App Private Key**: *(Upload the private key downloaded when creating the app)*
 5. Click **Connect**.
 6. Verify that the repository is connected successfully
+
+## AWS Configuring
+
+> [!WARNING]
+> **Important:** It is your responsibility to monitor the costs of your AWS services and delete any unused resources to avoid unexpected charges. We are using **AWS Secrets Manager** and **AWS ECR**, which are not free by default. However, in our case, we will take advantage of AWS's free tier benefits:
+  >- **AWS Secrets Manager** provides a **free plan for the first 30 days** from the creation of your first secret.
+  >- **AWS ECR** offers **50 GB per month of always-free storage** for public repositories.
+
+### Step 1: Create AWS ECR Public Repositories
+
+In real-world projects, we typically configure **private** Amazon Elastic Container Registry (ECR) repositories to ensure security and access control. However, for this setup, we will use **public** repositories to simplify the process of pulling images for our **local Kubernetes cluster**.
+
+> [!NOTE]
+> In production, always use **private repositories** with proper authentication and permissions.
+
+These repositories in our case should be created **only in the `us-east-1` region** because it will be necessary for further GitHub Actions configuration.
+
+Go to **AWS ECR** in the AWS Console and create two **public** repositories named `backend` and `frontend` in the **us-east-1** region. 
+
+Once these repositories are created, they will be used for storing and pulling container images for deployment in our local Kubernetes cluster.
+
+### Step 2: Connect your AWS account with the GitHub repository
+
+To securely connect GitHub Actions with AWS, we will use **OpenID Connect (OIDC)** and assume an AWS IAM role.
+
+1. Go to AWS IAM and create a new OpenID Connect (OIDC) identity provider
+   - Provider URL: `https://token.actions.githubusercontent.com`
+   - Audience: `sts.amazonaws.com`
+2. Assign role to the identity provider
+   - Trusted entity type: `Web identity`
+   - Identity provider: `token.actions.githubusercontent.com`
+   - Audience: `sts.amazonaws.com`
+   - GitHub organization: `<Your GitHub username>`
+   - GitHub repository: `<Your GitHub repository name>`
+   - Permissions policies: `AmazonElasticContainerRegistryPublicPowerUser`
+3. Create GitHub Actions secrets in the GitHub repository settings
+   - AWS_REGION: `us-east-1`
+   - AWS_ECR_ROLE_TO_ASSUME: `<Your IAM role ARN>`
+   - AWS_ECR_REGISTRY_ALIAS: `<Your ECR public registry default alias>`
+
+### Step 3: Create secrts in AWS Secrets Manager
+
+To securely store sensitive information, we will create secrets in **AWS Secrets Manager** for both **dev** and **prod** environments.
+
+Go to **AWS Secrets Manager** in the AWS Console and create 2 secrets: 
+  - `myapp/prod/backend`
+    - PROJECT_NAME: `kube-deployments`
+    - SECRET_KEY: `verysecretprod`
+    - FIRST_SUPERUSER: `prod-admin@example.com`
+    - FIRST_SUPERUSER_PASSWORD: `prodpassword`
+    - POSTGRES_SERVER: `postgres-prod-postgresql.prod.svc.cluster.local`
+    - POSTGRES_PORT: `5432`
+    - POSTGRES_USER: `postgres`
+    - POSTGRES_PASSWORD: `0HOazoRK9s`
+
+  - `myapp/dev/backend`
+    - PROJECT_NAME: `kube-deployments`
+    - SECRET_KEY: `verysecretdev`
+    - FIRST_SUPERUSER: `dev-admin@example.com`
+    - FIRST_SUPERUSER_PASSWORD: `devpassword`
+    - POSTGRES_SERVER: `postgres-dev-postgresql.dev.svc.cluster.local`
+    - POSTGRES_PORT: `5432`
+    - POSTGRES_USER: `postgres`
+    - POSTGRES_PASSWORD: `QclrKKcUpJ`
+
+### Step 4: Create IAM user and Secutiry Credentials
+
+This user will be used to securely manage and retrieve secrets in AWS Secrets Manager.
+
+Go to **AWS IAM** in the AWS Console and create a new IAM user without Console Access and with `SecretsManagerReadWrite` permissions. Generate a new pair of security credentials and download or copy the **Access Key ID** and **Secret Access Key** as they will be needed later.
