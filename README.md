@@ -181,6 +181,10 @@ To securely connect GitHub Actions with AWS, we will use **OpenID Connect (OIDC)
 
 To securely store sensitive information, we will create secrets in **AWS Secrets Manager** for both **dev** and **prod** environments.
 
+> [!WARNING]
+> The credentials provided below are not real and are intended solely for testing purposes.
+> NEVER push actual credentials (API keys, passwords, tokens, etc.) to GitHub, even in private repositories.
+
 Go to **AWS Secrets Manager** in the AWS Console and create 2 secrets: 
   - `myapp/prod/backend`
     - PROJECT_NAME: `kube-deployments`
