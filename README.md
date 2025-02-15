@@ -100,15 +100,15 @@ Create a **GitHub App** to allow Argo CD to access this private repository.
 1. Go to [GitHub Developer Settings](https://github.com/settings/apps) and click **New GitHub App**.
 
 2. Configure the GitHub App for Argo CD:
-   - **GitHub App Name**: Any valid name.
-   - **Description**: "Allows Argo CD to access a private repository with Helm charts."
-   - **Homepage URL**: In our case it can be any valid URL, for exmaple: https://argo-cd.readthedocs.io.
-   - **Expire user authorization tokens**: **Disabled**.
-   - **Webhook**: **Disabled**.
+   - GitHub App Name: Any valid name.
+   - Description: "Allows Argo CD to access a private repository with Helm charts."
+   - Homepage URL: In our case it can be any valid URL, for exmaple: https://argo-cd.readthedocs.io.
+   - Expire user authorization tokens: **Disabled**.
+   - Webhook: **Disabled**.
 
 3. Set **Repository Permissions** for the GitHub App:
-   - **Contents**: `Read-only`
-   - **Metadata**: `Read-only`
+   - Contents: `Read-only`
+   - Metadata: `Read-only`
 
 4. Click **Create GitHub App**.
 
@@ -128,12 +128,12 @@ Now, install the GitHub App for your Helm charts repository.
 2. Navigate to **Repositories** → **Connect Repo**.
 3. Choose **GitHub App** as the connection method.
 4. Fill in the required fields:
-   - **Type**: `GitHub`
-   - **Project**: `default`
-   - **Repository URL**: *(Copy your Helm charts repo URL)*
-   - **GitHub App ID**: *(Find it in your GitHub App settings)*
-   - **GitHub App Installation ID**: *(Find it in the search bar on the Installed Apps page)*
-   - **GitHub App Private Key**: *(Upload the private key downloaded when creating the app)*
+   - Type: `GitHub`
+   - Project: `default`
+   - Repository URL: *(Copy your GitHub repo URL)*
+   - GitHub App ID: *(Find it in your GitHub App settings)*
+   - GitHub App Installation ID: *(Find it in the search bar on the Installed Apps page)*
+   - GitHub App Private Key: *(Upload the private key downloaded when creating the app)*
 5. Click **Connect**.
 6. Verify that the repository is connected successfully
 
@@ -211,3 +211,121 @@ Go to **AWS Secrets Manager** in the AWS Console and create 2 secrets:
 This user will be used to securely manage and retrieve secrets in AWS Secrets Manager.
 
 Go to **AWS IAM** in the AWS Console and create a new IAM user without Console Access and with `SecretsManagerReadWrite` permissions. Generate a new pair of security credentials and download or copy the **Access Key ID** and **Secret Access Key** as they will be needed later.
+
+## Installing Public Helm Charts in GitOps Way
+
+### Step 1: Create Secrets with AWS User Credentials
+
+Since we are using a local Kubernetes cluster (KinD), we need to **hardcode static AWS credentials** for authentication. This approach is necessary because there is no AWS identity integration available in a local setup.
+
+> [!IMPORTANT]
+> In **real projects**, you should **never** use static credentials like this. Hardcoding AWS credentials is insecure and not a best practice. Since we are using a **local KinD cluster**, static credentials are required for this setup. However, when deploying on AWS EKS or any production environment use IAM Roles for Service Accounts (IRSA) to securely grant permissions to Kubernetes workloads without exposing secrets.
+
+Run the following commands to create the necessary Kubernetes namespaces and secrets:
+
+```bash
+kubectl create ns dev
+```
+
+```bash
+kubectl create ns prod
+```
+
+```bash
+kubectl create secret generic awssm-secret \
+  --namespace=dev \
+  --from-literal=access-key=YOUR_ACCESS_KEY \
+  --from-literal=secret-access-key=YOUR_SECRET_ACCESS_KEY
+```
+
+```bash
+kubectl create secret generic awssm-secret \
+  --namespace=prod \
+  --from-literal=access-key=YOUR_ACCESS_KEY \
+  --from-literal=secret-access-key=YOUR_SECRET_ACCESS_KEY
+```
+
+### Step 2: Create Argo CD root Application
+
+> [!NOTE]
+> In a **GitOps** workflow, we do not manually install Helm charts using `helm install` or `kubectl apply`. Instead, we define the desired state in a Git repository, and a GitOps tool like **Argo CD** continuously syncs the cluster with that state.
+
+> [!NOTE]
+> One of the best practices in Argo CD is the **App of Apps** pattern. Instead of defining each application separately, we use a **root Application** that manages multiple child applications, simplifying deployment and management.
+
+To implement the **App of Apps** pattern, we need to create an `app-of-apps.yaml` file in our repository. The beginning of this file is commented out. **Uncomment it and populate it with the following values**:
+
+- repoURL: `<Your GitHub Repository HTTPS URL>`
+- targetRevision: `HEAD`
+- path: `argocd-apps`
+- destination server: `https://kubernetes.default.svc`
+- destination namespace: `argocd`
+- syncPolicy: manual
+- syncOptions: `CreateNamespace=true`
+- revisionHistoryLimit: `5`
+
+```bash
+kubectl apply -f app-of-apps.yaml
+```
+
+### Step 3: Bootstrap Argo CD with Argo CD
+
+Now that we have set up the **App of Apps** pattern, the next step is to define an Argo CD application for **third-party tools**, including a trick where **Argo CD manages itself**.  
+
+Inside the **`argocd-apps`** directory, update the `argocd.yaml` file with the following values:
+
+- repoURL: `https://argoproj.github.io/argo-helm`
+- targetRevision: `7.8.2`
+- chart: `argo-cd`
+- helm values:
+  ```yaml
+  releaseName: argocd
+  valuesObject:
+    dex:
+      enabled: false
+    notifications:
+      enabled: false
+  ```
+- destination server: `https://kubernetes.default.svc`
+- destination namespace: `argocd`
+- syncPolicy: `automated`
+  - prune: `true`
+  - selfHeal: `true`
+- syncOptions: `CreateNamespace=true`
+- revisionHistoryLimit: `5`
+
+Once you have updated `argocd.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
+
+### Step 4: Create Argo CD Application for Ingress-Nginx
+
+Next, we will create an **Argo CD application for Ingress-Nginx**, which will handle ingress traffic for our Kubernetes cluster.
+
+Inside the **`argocd-apps`** directory, create or update the `ingress-nginx.yaml` file with the following values:
+
+- repoURL: `https://kubernetes.github.io/ingress-nginx`
+- targetRevision: `4.12.0`
+- path: `ingress-nginx`
+
+- helm values:  
+  ```yaml
+  releaseName: ingress-nginx
+  valuesObject:
+    controller:
+      hostPort:
+        enabled: true
+      service:
+        enabled: false
+      nodeSelector:
+        ingress-ready: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+  ```
+- destination server: `https://kubernetes.default.svc`
+- destination namespace: `argocd`
+- syncPolicy: `automated`
+  - prune: `true`
+  - selfHeal: `true`
+- syncOptions: `CreateNamespace=true` 
+- revisionHistoryLimit: `5` 
