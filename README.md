@@ -44,7 +44,6 @@ For proper configuration of resources, refer to the official documentation linke
 - [Nginx Ingress Controller Helm chart](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx)
 - [PostgreSQL Helm chart](https://artifacthub.io/packages/helm/bitnami/postgresql)
 - [External Secrets Helm chart](https://artifacthub.io/packages/helm/external-secrets-operator/external-secrets)
-- [Reloader Helm chart](https://artifacthub.io/packages/helm/stakater/reloader)
 
 ## Cluster Setup
 
