@@ -300,11 +300,11 @@ Once you have updated `argocd.yaml`, commit and push the changes to your **GitHu
 
 Next, we will create an **Argo CD application for Ingress-Nginx**, which will handle ingress traffic for our Kubernetes cluster.
 
-Inside the **`argocd-apps`** directory, create or update the `ingress-nginx.yaml` file with the following values:
+Inside the **`argocd-apps`** directory, update the `ingress-nginx.yaml` file with the following values:
 
 - repoURL: `https://kubernetes.github.io/ingress-nginx`
 - targetRevision: `4.12.0`
-- path: `ingress-nginx`
+- chart: `ingress-nginx`
 
 - helm values:  
   ```yaml
@@ -323,9 +323,76 @@ Inside the **`argocd-apps`** directory, create or update the `ingress-nginx.yaml
           operator: Exists
   ```
 - destination server: `https://kubernetes.default.svc`
-- destination namespace: `argocd`
+- destination namespace: `ingress-nginx`
 - syncPolicy: `automated`
   - prune: `true`
   - selfHeal: `true`
 - syncOptions: `CreateNamespace=true` 
 - revisionHistoryLimit: `5` 
+
+Once you have updated `ingress-nginx.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
+
+### Step 5: Create Argo CD Application for External Secrets
+
+Next, we will create an **Argo CD application for External Secrets**, which allows Kubernetes to securely retrieve secrets from external secret management systems like AWS Secrets Manager.
+
+Inside the **`argocd-apps`** directory, update the `external-secrets.yaml` file with the following values:
+
+- repoURL: `https://charts.external-secrets.io`
+- targetRevision: `0.14.1`
+- chart: `external-secrets`
+
+- helm values:  
+  ```yaml
+  releaseName: external-secrets
+  valuesObject:
+    extraObjects:
+      - apiVersion: external-secrets.io/v1alpha1
+        kind: ClusterSecretStore
+        metadata:
+          name: awssm-store
+        spec:
+        # You need to write the spec section yourself according to the External Secrets documentation
+
+        # Provider: aws
+        # Service: AWS Secrets Manager
+        # Region: <Your AWS region where secrets are located>
+        # AccessKey should be referenced from the awssm-secret Kubernetes secret you have created in the Step 1
+        # SecretAccessKey should be referenced from the awssm-secret Kubernetes secret you have created in the Step 1
+
+      - apiVersion: external-secrets.io/v1alpha1
+        kind: ExternalSecret
+        metadata:
+          name: backend-dev-secret
+          namespace: dev
+        spec:
+        # You need to write the spec section yourself according to the External Secrets documentation
+
+        # Refresh Interval: 5m0s
+        # Secret Store Reference to awssm-store ClusterSecretStore
+        # Target Name: backend-secret
+        # Data From AWS secret: myapp/dev/backend
+
+      - apiVersion: external-secrets.io/v1alpha1
+        kind: ExternalSecret
+        metadata:
+          name: backend-prod-secret
+          namespace: prod
+        spec:
+        # You need to write the spec section yourself according to the External Secrets documentation
+
+        # Refresh Interval: 5m0s
+        # Secret Store Reference to awssm-store ClusterSecretStore
+        # Target Name: backend-secret
+        # Data From AWS secret: myapp/prod/backend
+  ```
+
+- destination server: `https://kubernetes.default.svc`
+- destination namespace: `external-secrets`
+- syncPolicy: `automated`
+  - prune: `true`
+  - selfHeal: `true`
+- syncOptions: `CreateNamespace=true` 
+- revisionHistoryLimit: `5` 
+
+Once you have updated `external-secrets.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
