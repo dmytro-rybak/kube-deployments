@@ -244,7 +244,7 @@ kubectl create secret generic awssm-secret \
   --from-literal=secret-access-key=YOUR_SECRET_ACCESS_KEY
 ```
 
-### Step 2: Create Argo CD root Application
+### Step 2: Create an Argo CD root Application
 
 > [!NOTE]
 > In a **GitOps** workflow, we do not manually install Helm charts using `helm install` or `kubectl apply`. Instead, we define the desired state in a Git repository, and a GitOps tool like **Argo CD** continuously syncs the cluster with that state.
@@ -295,7 +295,7 @@ Inside the **`argocd-apps`** directory, update the `argocd.yaml` file with the f
 
 Once you have updated `argocd.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
 
-### Step 4: Create Argo CD Application for Ingress-Nginx
+### Step 4: Create an Argo CD Application for Ingress-Nginx
 
 Next, we will create an **Argo CD application for Ingress-Nginx**, which will handle ingress traffic for our Kubernetes cluster.
 
@@ -331,7 +331,7 @@ Inside the **`argocd-apps`** directory, update the `ingress-nginx.yaml` file wit
 
 Once you have updated `ingress-nginx.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
 
-### Step 5: Create Argo CD Application for External Secrets
+### Step 5: Create an Argo CD Application for External Secrets
 
 Next, we will create an **Argo CD application for External Secrets**, which allows Kubernetes to securely retrieve secrets from external secret management systems like AWS Secrets Manager.
 
@@ -395,3 +395,45 @@ Inside the **`argocd-apps`** directory, update the `external-secrets.yaml` file 
 - revisionHistoryLimit: `5` 
 
 Once you have updated `external-secrets.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
+
+### Step 6: Create an Argo CD ApplicationSet for PostgreSQL
+
+We plan to use **two different environments**: `dev` and `prod`, each requiring a separate PostgreSQL database. Instead of manually creating two Argo CD `Application` resources, we can use an `ApplicationSet`, which allows us to dynamically generate multiple similar applications based on predefined parameters.
+
+Inside the **`argocd-apps`** directory, update the `postgres.yaml` file with the following values:
+
+- Create a list with 2 elements: (env: `dev`, storageSize: `1Gi`) and (env: `prod`, storageSize: `2Gi`)
+
+- repoURL: `https://charts.bitnami.com/bitnami`
+- targetRevision: `16.0.3`
+- chart: `postgresql`
+
+- helm values:  
+  ```yaml
+  releaseName: "postgres-{{env}}"
+  valuesObject:
+    auth:
+      existingSecret: "backend-secret"
+      secretKeys:
+        adminPasswordKey: POSTGRES_PASSWORD
+    architecture: standalone
+    primary:
+      persistence:
+        size: "{{storageSize}}"
+      resourcesPreset: none
+      resources:
+        requests:
+          cpu: 125m
+          memory: 256Mi
+        limits:
+          cpu: 250m
+          memory: 512Mi
+  ```
+
+- destination server: `https://kubernetes.default.svc`
+- destination namespace: `{{env}}`
+- syncPolicy: `automated`
+  - prune: `true`
+  - selfHeal: `true`
+- syncOptions: `CreateNamespace=true` 
+- revisionHistoryLimit: `5` 
