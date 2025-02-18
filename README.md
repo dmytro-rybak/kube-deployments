@@ -437,3 +437,26 @@ Inside the **`argocd-apps`** directory, update the `postgres.yaml` file with the
   - selfHeal: `true`
 - syncOptions: `CreateNamespace=true` 
 - revisionHistoryLimit: `5` 
+
+Once you have updated `postgres.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
+
+## Creating Custom Helm Charts
+
+To ensure a structured and reusable deployment, we will use **custom Helm charts** for both the **backend** and **frontend** applications.
+
+> [!NOTE]
+> Not everything needs to be set through `values.yaml`. Some parameters can be hardcoded in template files if they are constant across all deployments. The key is to find a balance and avoid overcomplicating the chart by exposing every possible field in `values.yaml`, but ensure flexibility where needed.
+
+I have already predefined a **Helm chart structure** for each service, which includes:
+
+- `Chart.yaml`  
+- `values.yaml`  
+- `values-dev.yaml`  
+- `values-prod.yaml`  
+- `templates/` directory with:  
+  - `deployment.yaml`  
+  - `service.yaml`  
+  - `ingress.yaml`  
+
+> [!IMPORTANT]
+> We are going to create **similar Kubernetes manifests** (`Deployment`, `Service`, `Ingress`) as we did in the previous **`kube-essentials`** project. If you have completed that project, it should significantly help you **rewrite and convert** those manifests into Helm templates.  
