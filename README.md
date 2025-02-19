@@ -13,7 +13,7 @@ Before you begin, ensure you have the following tools installed on your machine:
 - **Docker**: Required for building and running container images. Follow the installation instructions for your platform:
   - [Docker installation guide](https://docs.docker.com/get-docker/)
 
-- **Kind** (Kubernetes in Docker): Used to create local Kubernetes clusters using Docker. Install Kind by following the official documentation:
+- **KinD** (Kubernetes in Docker): Used to create local Kubernetes clusters using Docker. Install KinD by following the official documentation:
   - [Kind installation guide](https://kind.sigs.k8s.io/docs/user/quick-start/)
 
 - **kubectl**: The command-line tool for interacting with your Kubernetes cluster. Install it using the official Kubernetes documentation:
@@ -49,7 +49,7 @@ For proper configuration of resources, refer to the official documentation linke
 
 To set up your Kubernetes cluster with **kind** and configure the necessary components, follow the steps below:
 
-### Step 1: Create the Kind Cluster
+### Step 1: Create the KinD Cluster
 
 The **kind** configuration is already prepared with 1 control-plane node and 2 worker nodes. To create the cluster, run:
 
@@ -326,8 +326,8 @@ Inside the **`argocd-apps`** directory, update the `ingress-nginx.yaml` file wit
 - syncPolicy: `automated`
   - prune: `true`
   - selfHeal: `true`
-- syncOptions: `CreateNamespace=true` 
-- revisionHistoryLimit: `5` 
+- syncOptions: `CreateNamespace=true`
+- revisionHistoryLimit: `5`
 
 Once you have updated `ingress-nginx.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
 
@@ -391,8 +391,8 @@ Inside the **`argocd-apps`** directory, update the `external-secrets.yaml` file 
 - syncPolicy: `automated`
   - prune: `true`
   - selfHeal: `true`
-- syncOptions: `CreateNamespace=true` 
-- revisionHistoryLimit: `5` 
+- syncOptions: `CreateNamespace=true`
+- revisionHistoryLimit: `5`
 
 Once you have updated `external-secrets.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
 
@@ -402,13 +402,13 @@ We plan to use **two different environments**: `dev` and `prod`, each requiring 
 
 Inside the **`argocd-apps`** directory, update the `postgres.yaml` file with the following values:
 
-- Create a list with 2 elements: (env: `dev`, storageSize: `1Gi`) and (env: `prod`, storageSize: `2Gi`)
+- Create a list generator with 2 elements: (env: `dev`, storageSize: `1Gi`) and (env: `prod`, storageSize: `2Gi`)
 
 - repoURL: `https://charts.bitnami.com/bitnami`
 - targetRevision: `16.0.3`
 - chart: `postgresql`
 
-- helm values:  
+- helm values:
   ```yaml
   releaseName: "postgres-{{env}}"
   valuesObject:
@@ -435,8 +435,8 @@ Inside the **`argocd-apps`** directory, update the `postgres.yaml` file with the
 - syncPolicy: `automated`
   - prune: `true`
   - selfHeal: `true`
-- syncOptions: `CreateNamespace=true` 
-- revisionHistoryLimit: `5` 
+- syncOptions: `CreateNamespace=true`
+- revisionHistoryLimit: `5`
 
 Once you have updated `postgres.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
 
@@ -449,14 +449,96 @@ To ensure a structured and reusable deployment, we will use **custom Helm charts
 
 I have already predefined a **Helm chart structure** for each service, which includes:
 
-- `Chart.yaml`  
-- `values.yaml`  
-- `values-dev.yaml`  
-- `values-prod.yaml`  
-- `templates/` directory with:  
-  - `deployment.yaml`  
-  - `service.yaml`  
-  - `ingress.yaml`  
+- `Chart.yaml`
+- `values.yaml`
+- `values-dev.yaml`
+- `values-prod.yaml`
+- `templates/` directory with:
+  - `deployment.yaml`
+  - `service.yaml`
+  - `ingress.yaml`
 
 > [!IMPORTANT]
 > We are going to create **similar Kubernetes manifests** (`Deployment`, `Service`, `Ingress`) as we did in the previous **`kube-essentials`** project. If you have completed that project, it should significantly help you **rewrite and convert** those manifests into Helm templates.  
+
+
+
+## GitHub Actions Configuring
+
+## Creating an Argo CD ApplicationSet for Custom Aplications
+
+> [!NOTE]
+> We have two applications, `frontend` and `backend`, and we need to deploy them in two different environments: `dev` and `prod`. This results in a total of four separate applications. Instead of manually defining each application, we can use an `ApplicationSet` in Argo CD to dynamically generate and manage all four applications from a single configuration. This approach ensures consistency, reduces duplication, and makes future updates easier to maintain.
+
+Inside the **`argocd-apps`** directory, update the `custom-apps.yaml` file with the following values:
+
+- Create a matrix generator with 2 lists generators. The first list should have our apps: `app: backend` and `app: frontend`. The second list should have our envs: `env: dev` and `env: prod`. And the result of our matrix will be: 4 Argo CD Applications: `backend-prod`, `frontend-prod`, `backend-dev`, and `frontend-dev`.
+
+- repoURL: `<Link to your GitHub repository>`
+- targetRevision: `HEAD`
+- chart: `custom-charts/{{app}}`
+- application name: `{{app}}-{{env}}`
+
+- helm:
+    ```yaml
+    valueFiles:
+      - values.yaml
+      - "values-{{env}}.yaml"
+    ```
+
+- destination server: `https://kubernetes.default.svc`
+- destination namespace: `{{env}}`
+- syncPolicy: `automated`
+  - prune: `true`
+  - selfHeal: `true`
+- syncOptions: `CreateNamespace=true`
+- revisionHistoryLimit: `5`
+
+## Fake local domains using the `/etc/hosts` file
+
+Since we are testing the application locally, we need to **map fake domains** to our local cluster. This is done by modifying the `/etc/hosts` file to point our custom domains to `127.0.0.1`.
+
+Update the `/etc/hosts` file by adding the following lines:
+
+```
+127.0.0.1 myapp.local
+127.0.0.1 dev.myapp.local
+```
+
+## Test the Apps
+
+Now that the setup is complete, it's time to **test the applications** in both environments.
+
+1. **Make sure all pods are in the Running state**
+
+    ```bash
+      kubectl get pods -A
+    ```
+
+2. **Access the Applications**
+    - UI Production: [`https://myapp.local`](https://myapp.local)
+    - API Docs (Production): [`https://myapp.local/docs`](https://myapp.local/docs)
+    - UI Development: [`https://dev.myapp.local`](https://dev.myapp.local)
+    - API Docs (Development): [`https://dev.myapp.local/docs`](https://dev.myapp.local/docs)
+
+3. **Test Authentication & Features**
+   - Try to **log in** to both environments.
+   - Create some items in each environment.
+   - Make sure that items created in **one environment** are **not accessible** in the other.
+   - Since `dev` and `prod` use **separate databases**, data should not overlap.
+
+## Further Recommendations
+
+Once you've tested the setup and confirmed everything works, take a moment to evaluate your efforts. This project is not easy, but it reflects real-world practices you'll see in actual work. Now, try to understand each part — Helm templating, Argo CD concepts like Application, ApplicationSet, and the App of Apps pattern, as well as External Secrets management. If something isn’t clear, take your time to explore and experiment. Learning these concepts will give you a strong foundation in Kubernetes and GitOps. Keep going — you’re building real, valuable skills!
+
+## CleanUp
+
+After completing the project and testing your setup, make sure to clean up all resources to avoid unnecessary use of local resources:
+
+- Delete the fake domains from the /etc/hosts file.
+- Remove the AWS resources if you don't need them anymore.
+- Delete the KinD cluster to remove all Kubernetes resources and the cluster itself:
+
+  ```bash
+    kind delete cluster
+  ```
