@@ -233,17 +233,14 @@ kubectl create ns prod
 ```
 
 ```bash
-kubectl create secret generic awssm-secret \
-  --namespace=dev \
-  --from-literal=access-key=YOUR_ACCESS_KEY \
-  --from-literal=secret-access-key=YOUR_SECRET_ACCESS_KEY
+kubectl create ns external-secrets
 ```
 
 ```bash
 kubectl create secret generic awssm-secret \
-  --namespace=prod \
-  --from-literal=access-key=YOUR_ACCESS_KEY \
-  --from-literal=secret-access-key=YOUR_SECRET_ACCESS_KEY
+  --namespace=external-secrets \
+  --from-literal=access-key=<YOUR_ACCESS_KEY> \
+  --from-literal=secret-access-key=<YOUR_SECRET_ACCESS_KEY>
 ```
 
 ### Step 2: Create an Argo CD root Application
@@ -358,8 +355,8 @@ Inside the **`argocd-apps`** directory, update the `external-secrets.yaml` file 
         # Provider: aws
         # Service: AWS Secrets Manager
         # Region: <Your AWS region where secrets are located>
-        # AccessKey should be referenced from the awssm-secret Kubernetes secret you have created in the Step 1
-        # SecretAccessKey should be referenced from the awssm-secret Kubernetes secret you have created in the Step 1
+        # AccessKey should be referenced from the awssm-secret Kubernetes secret you have created in the Step 1 (don't forget to specify the namespace)
+        # SecretAccessKey should be referenced from the awssm-secret Kubernetes secret you have created in the Step 1 (don't forget to specify the namespace)
 
       - apiVersion: external-secrets.io/v1alpha1
         kind: ExternalSecret
