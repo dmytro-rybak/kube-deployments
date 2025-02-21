@@ -507,14 +507,14 @@ For the `backend.yaml` you should:
 
 - Add a step to build, tag, and push Docker Image to Amazon ECR Public:
 
-  1. Set Environment Variables:
+  Set Environment Variables:
    - `AWS_ECR_REGISTRY`: The ECR registry URL obtained from the previous login step. 
    - `AWS_ECR_REGISTRY_ALIAS`: The registry alias stored in the `AWS_ECR_REGISTRY_ALIAS` secret.  
    - `AWS_ECR_REPOSITORY`: The name of the target repository (`backend`).
    - `BACKEND_REPOSITORY`: The source code URL of the backend application (`https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend`).
    - `IMAGE_TAG`: The Docker image tag set to the short Git commit SHA (`SHORT_SHA`).
 
-  2. Add the commands to build a Docker image, tag it with the short Git commit SHA, and push it to Amazon ECR Public. If the environment is **`prod`**, the image is also tagged as **`latest`**.
+  Add the commands to build a Docker image, tag it with the short Git commit SHA, and push it to Amazon ECR Public. If the environment is **`prod`**, the image is also tagged as **`latest`**.
 
   ```yaml
   run: |
@@ -546,6 +546,8 @@ For `frontend.yaml`, follow the same steps as in `backend.yaml`, but replace **b
   ```bash
   docker build ... --build-arg VITE_API_URL=$BACKEND_URL ...
   ```
+
+After configuring both `backend.yaml` and `frontend.yaml`, manually trigger the pipelines to verify that everything works correctly.
 
 ## Creating an Argo CD ApplicationSet for Custom Aplications
 
