@@ -90,7 +90,9 @@ Now, you can open `localhost:8080` in your browser and log in using:
 - Username: `admin`
 - Password: (The one retrieved in the previous command)
 
-### Step 3: Create a Private GitHub Repository for Helm charts
+### Step 3: Create a Private GitHub Repository
+
+Create a private GitHub repository and copy all folders and files from the `helmcharts-repo-template` folder into your repository without changing the structure. Ensure that all files are uploaded correctly.
 
 ### Step 4: Create a GitHub App for Argo CD
 
@@ -115,7 +117,7 @@ Create a **GitHub App** to allow Argo CD to access this private repository.
 
 ### Step 5: Install the GitHub App
 
-Now, install the GitHub App for your Helm charts repository.
+Now, install the GitHub App for your GitHub repository.
 
 1. In your newly created GitHub App settings, navigate to **Install App**.
 2. Click **Install** and select only the helmcharts repository you created in the Step 3.
@@ -151,7 +153,7 @@ In real-world projects, we typically configure **private** Amazon Elastic Contai
 > In production, always use **private repositories** with proper authentication and permissions.
 
 > [!IMPORTANT]
-These repositories in our case should be created **only in the `us-east-1` region** because it will be necessary for further GitHub Actions configuration.
+These AWS ECR repositories in our case should be created **only in the `us-east-1` region** because it will be necessary for further GitHub Actions configuration.
 
 Go to **AWS ECR** in the AWS Console and create two **public** repositories named `backend` and `frontend` in the **us-east-1** region. 
 
@@ -164,7 +166,7 @@ To securely connect GitHub Actions with AWS, we will use **OpenID Connect (OIDC)
 1. Go to AWS IAM and create a new OpenID Connect (OIDC) identity provider
    - Provider URL: `https://token.actions.githubusercontent.com`
    - Audience: `sts.amazonaws.com`
-2. Assign role to the identity provider
+2. Assign an IAM role to the identity provider
    - Trusted entity type: `Web identity`
    - Identity provider: `token.actions.githubusercontent.com`
    - Audience: `sts.amazonaws.com`
@@ -215,7 +217,7 @@ Go to **AWS IAM** in the AWS Console and create a new IAM user without Console A
 
 ### Step 1: Create Secrets with AWS User Credentials
 
-Since we are using a local Kubernetes cluster (KinD), we need to **hardcode static AWS credentials** for authentication. This approach is necessary because there is no AWS identity integration available in a local setup.
+Since we are using a local Kubernetes cluster (KinD), we need to **hardcode static AWS credentials** for authentication. This approach is necessary because there is no convenient AWS identity integration available in a local setup.
 
 > [!IMPORTANT]
 > In **real projects**, you should **never** use static credentials like this. Hardcoding AWS credentials is insecure and not a best practice. Since we are using a **local KinD cluster**, static credentials are required for this setup. However, when deploying on AWS EKS or any production environment use IAM Roles for Service Accounts (IRSA) to securely grant permissions to Kubernetes workloads without exposing secrets.
@@ -402,7 +404,13 @@ We plan to use **two different environments**: `dev` and `prod`, each requiring 
 
 Inside the **`argocd-apps`** directory, update the `postgres.yaml` file with the following values:
 
-- Create a list generator with 2 elements: (env: `dev`, storageSize: `1Gi`) and (env: `prod`, storageSize: `2Gi`)
+- list generator with 2 elements:
+  ```yaml
+  - env: dev
+    storageSize: 1Gi 
+  - env: prod
+    storageSize: 2Gi
+  ```
 
 - repoURL: `https://charts.bitnami.com/bitnami`
 - targetRevision: `16.0.3`
@@ -465,6 +473,80 @@ I have already predefined a **Helm chart structure** for each service, which inc
 
 ## GitHub Actions Configuring
 
+Your task is to update two GitHub workflow files: **`backend.yaml`** and **`frontend.yaml`**. Each workflow should build a Docker image, push it to a container registry, and update the Docker image tag in the Helm chart values. Make sure both files are located in the `.github/workflows` directory.
+
+> [!NOTE]
+> In real-world projects, GitHub Actions workflows are typically placed in the repository containing the source code. However, since we are using a public code template, we can place the workflows in our own repository.
+
+For the `backend.yaml` you should:
+
+- Define a `workflow_dispatch` trigger with a required input variable named `environment`, allowing two options: `dev` or `prod`. This input will let you manually trigger the workflow and select the target environment.
+
+- Add the permissions:
+  ```yaml
+  permissions:
+    id-token: write
+    contents: write
+  ```
+
+- Add a step to Checkout Code using the `actions/checkout` action. This step will clone the repository so the workflow can access the files.
+
+- Add a step to configure AWS credentials using **IAM role assumption** with `aws-actions/configure-aws-credentials`, using the `AWS_ECR_ROLE_TO_ASSUME` and `AWS_REGION` secrets.
+
+  > [!NOTE]
+  > Always use **IAM role assumption** instead of access and secret keys whenever possible for better security and compliance.
+
+- Add a step to login to Amazon ECR Public using the `aws-actions/amazon-ecr-login` action with the `registry-type` set to `public`. This step authenticates the workflow to push images to Amazon ECR Public.
+
+- Add a step to generate a short version of the Git commit SHA using the first 8 characters of `$GITHUB_SHA` and store it in the `SHORT_SHA` environment variable for use in later steps.  
+
+  ```yaml
+  - name: Get Short SHA
+    run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
+  ```
+
+- Add a step to build, tag, and push Docker Image to Amazon ECR Public:
+
+  1. Set Environment Variables:
+   - `AWS_ECR_REGISTRY`: The ECR registry URL obtained from the previous login step. 
+   - `AWS_ECR_REGISTRY_ALIAS`: The registry alias stored in the `AWS_ECR_REGISTRY_ALIAS` secret.  
+   - `AWS_ECR_REPOSITORY`: The name of the target repository (`backend`).
+   - `BACKEND_REPOSITORY`: The source code URL of the backend application (`https://github.com/fastapi/full-stack-fastapi-template.git#0.7.1:backend`).
+   - `IMAGE_TAG`: The Docker image tag set to the short Git commit SHA (`SHORT_SHA`).
+
+  2. Add the commands to build a Docker image, tag it with the short Git commit SHA, and push it to Amazon ECR Public. If the environment is **`prod`**, the image is also tagged as **`latest`**.
+
+  ```yaml
+  run: |
+    docker build -t $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $BACKEND_REPOSITORY
+    docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG
+
+    if [ "${{ inputs.environment }}" == "prod" ]; then
+      docker tag $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:$IMAGE_TAG $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
+      docker push $AWS_ECR_REGISTRY/$AWS_ECR_REGISTRY_ALIAS/$AWS_ECR_REPOSITORY:latest
+    fi
+  ```
+
+- Add a step to update the Docker image tag in the environment-specific `values.yaml` file of the target Helm chart using the `fjogeleit/yaml-update-action` action. The image tag is set to the short Git commit SHA.
+
+  - valueFile: `custom-charts/backend/values-${{ github.event.inputs.environment }}.yaml`
+  - propertyPath: `deployment.image.tag`
+  - value: `<SHORT_SHA env variable>`
+  - branch: `main`
+  - message: `Update Image Version to <SHORT_SHA env variable>`
+
+For `frontend.yaml`, follow the same steps as in `backend.yaml`, but replace **backend** with **frontend** everywhere. Additionally, add one extra step before building the image:
+
+- Add a step to set the `BACKEND_URL` environment variable based on the selected `environment`.  
+  - If `environment` is `dev`, set `BACKEND_URL` to `https://dev.myapp.local`.  
+  - If `environment` is `prod`, set `BACKEND_URL` to `https://myapp.local`.  
+
+  And when building the Docker image for the frontend, pass the `BACKEND_URL` as a build argument using:  
+  
+  ```bash
+  docker build ... --build-arg VITE_API_URL=$BACKEND_URL ...
+  ```
+
 ## Creating an Argo CD ApplicationSet for Custom Aplications
 
 > [!NOTE]
@@ -472,7 +554,19 @@ I have already predefined a **Helm chart structure** for each service, which inc
 
 Inside the **`argocd-apps`** directory, update the `custom-apps.yaml` file with the following values:
 
-- Create a matrix generator with 2 lists generators. The first list should have our apps: `app: backend` and `app: frontend`. The second list should have our envs: `env: dev` and `env: prod`. And the result of the matrix will be 4 Argo CD Applications: `backend-prod`, `frontend-prod`, `backend-dev`, and `frontend-dev`.
+- matrix generator with 2 lists generators:
+  ```yaml
+  - list:
+      elements:
+        - app: backend
+        - app: frontend
+  - list:
+      elements:
+        - env: dev
+        - env: prod
+  ```
+
+  And the result of the matrix will be 4 Argo CD Applications: `backend-prod`, `frontend-prod`, `backend-dev`, and `frontend-dev`.
 
 - repoURL: `<Link to your GitHub repository>`
 - targetRevision: `HEAD`
@@ -496,7 +590,8 @@ Inside the **`argocd-apps`** directory, update the `custom-apps.yaml` file with 
 
 ## Fake local domains using the `/etc/hosts` file
 
-Since we are testing the application locally, we need to **map fake domains** to our local cluster. This is done by modifying the `/etc/hosts` file to point our custom domains to `127.0.0.1`.
+> [!NOTE]
+> Since we are testing the application locally, we need to **map fake domains** to our local cluster. This is done by modifying the `/etc/hosts` file to point our custom domains to `127.0.0.1`. In a real-world setup, you would configure a proper DNS service, but for local testing, this approach is sufficient.
 
 Update the `/etc/hosts` file by adding the following lines:
 
@@ -512,7 +607,7 @@ Now that the setup is complete, it's time to **test the applications** in both e
 1. **Make sure all pods are in the Running state**
 
     ```bash
-      kubectl get pods -A
+    kubectl get pods -A
     ```
 
 2. **Access the Applications**
@@ -540,5 +635,5 @@ After completing the project and testing your setup, make sure to clean up all r
 - Delete the KinD cluster to remove all Kubernetes resources and the cluster itself:
 
   ```bash
-    kind delete cluster
+  kind delete cluster
   ```
