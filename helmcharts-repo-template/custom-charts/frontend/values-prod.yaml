@@ -1,3 +1,6 @@
-# deployment: {}
+deployment:
+  image:
+    tag: latest
 
-# ingress: {}
+ingress:
+  host: myapp.local

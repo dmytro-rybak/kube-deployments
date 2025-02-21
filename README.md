@@ -141,7 +141,7 @@ Now, install the GitHub App for your GitHub repository.
 ## AWS Configuring
 
 > [!WARNING]
-> **Important:** It is your responsibility to monitor the costs of your AWS services and delete any unused resources to avoid unexpected charges. We are using **AWS Secrets Manager** and **AWS ECR**, which are not free by default. However, in our case, we will take advantage of AWS's free tier benefits:
+> It is your responsibility to monitor the costs of your AWS services and delete any unused resources to avoid unexpected charges. We are using **AWS Secrets Manager** and **AWS ECR**, which are not free by default. However, in our case, we will take advantage of AWS's free tier benefits:
   >- **AWS Secrets Manager** provides a **free plan for the first 30 days** from the creation of your first secret.
   >- **AWS ECR** offers **50 GB per month of always-free storage** for public repositories.
 
@@ -452,8 +452,8 @@ Once you have updated `postgres.yaml`, commit and push the changes to your **Git
 
 To ensure a structured and reusable deployment, we will use **custom Helm charts** for both the **backend** and **frontend** applications.
 
-> [!NOTE]
-> Not everything needs to be set through `values.yaml`. Some parameters can be hardcoded in template files if they are constant across all deployments. The key is to find a balance and avoid overcomplicating the chart by exposing every possible field in `values.yaml`, but ensure flexibility where needed.
+> [!IMPORTANT]
+> We are going to create **similar Kubernetes manifests** (`Deployment`, `Service`, `Ingress`) as we did in the previous **`kube-essentials`** project. If you have completed that project, it should significantly help you **rewrite and convert** those manifests into Helm templates.
 
 I have already predefined a **Helm chart structure** for each service, which includes:
 
@@ -466,10 +466,12 @@ I have already predefined a **Helm chart structure** for each service, which inc
   - `service.yaml`
   - `ingress.yaml`
 
-> [!IMPORTANT]
-> We are going to create **similar Kubernetes manifests** (`Deployment`, `Service`, `Ingress`) as we did in the previous **`kube-essentials`** project. If you have completed that project, it should significantly help you **rewrite and convert** those manifests into Helm templates.  
+The YAML configuration files `values.yaml`, `values-dev.yaml`, and `values-prod.yaml` have been prepared for both the frontend and backend. By default, you don’t need to modify these files except for the `image.repository` parameter.
 
+Your task is to populate the template files using the values provided in `values.yaml` for both the frontend and backend.
 
+> [!NOTE]
+> Not everything needs to be set through `values.yaml`. Some parameters can be hardcoded in template files if they are constant across all deployments. The key is to find a balance and avoid overcomplicating the chart by exposing every possible field in `values.yaml`, but ensure flexibility where needed.
 
 ## GitHub Actions Configuring
 

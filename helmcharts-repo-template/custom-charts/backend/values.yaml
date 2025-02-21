@@ -1,7 +1,36 @@
-# application: backend
+application: backend
 
-# deployment: {}
+deployment:
+  replicas: 1
+  containerPort: 8000
+  image:
+    # Add the link to your AWS ECR repository
+    repository: ""
+    tag: "latest"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  livenessProbe:
+    httpPath: /api/v1/utils/health-check/
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 2
+    failureThreshold: 4
+  readinessProbe:
+    httpPath: /api/v1/utils/health-check/
+    initialDelaySeconds: 7
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
 
-# service: {}
+service:
+  type: ClusterIP
+  port: 8000
 
-# ingress: {}
+ingress:
+  ingressClassName: nginx
+  host: localhost

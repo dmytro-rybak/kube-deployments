@@ -1,7 +1,36 @@
-# application: frontend
+application: frontend
 
-# deployment: {}
+deployment:
+  replicas: 1
+  containerPort: 80
+  image:
+    # Add the link to your AWS ECR repository
+    repository: ""
+    tag: "latest"
+  resources:
+    requests:
+      cpu: "75m"
+      memory: "128Mi"
+    limits:
+      cpu: "150m"
+      memory: "256Mi"
+  livenessProbe:
+    httpPath: /
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 2
+    failureThreshold: 4
+  readinessProbe:
+    httpPath: /
+    initialDelaySeconds: 7
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
 
-# service: {}
+service:
+  type: ClusterIP
+  port: 80
 
-# ingress: {}
+ingress:
+  ingressClassName: nginx
+  host: localhost
