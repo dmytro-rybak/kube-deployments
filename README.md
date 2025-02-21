@@ -120,7 +120,7 @@ Create a **GitHub App** to allow Argo CD to access this private repository.
 Now, install the GitHub App for your GitHub repository.
 
 1. In your newly created GitHub App settings, navigate to **Install App**.
-2. Click **Install** and select only the helmcharts repository you created in the Step 3.
+2. Click **Install** and select only the repository you created in the Step 3.
 3. Confirm the installation.
 
 ### Step 6: Connect the GitHub App to Argo CD
@@ -131,7 +131,7 @@ Now, install the GitHub App for your GitHub repository.
 4. Fill in the required fields:
    - Type: `GitHub`
    - Project: `default`
-   - Repository URL: *(Copy your GitHub repo URL)*
+   - Repository URL: *(Copy your GitHub repo HTTPS URL)*
    - GitHub App ID: *(Find it in your GitHub App settings)*
    - GitHub App Installation ID: *(Find it in the search bar on the Installed Apps page)*
    - GitHub App Private Key: *(Upload the private key downloaded when creating the app)*
@@ -178,12 +178,12 @@ To securely connect GitHub Actions with AWS, we will use **OpenID Connect (OIDC)
    - AWS_ECR_ROLE_TO_ASSUME: `<Your IAM role ARN>`
    - AWS_ECR_REGISTRY_ALIAS: `<Your ECR public registry default alias>`
 
-### Step 3: Create secrts in AWS Secrets Manager
+### Step 3: Create secrets in AWS Secrets Manager
 
 To securely store sensitive information, we will create secrets in **AWS Secrets Manager** for both **dev** and **prod** environments.
 
 > [!WARNING]
-> The credentials provided below are not real and are intended solely for testing purposes.
+> The credentials provided below are not real and are for testing purposes only.
 > NEVER push actual credentials (API keys, passwords, tokens, etc.) to GitHub, even in private repositories.
 
 Go to **AWS Secrets Manager** in the AWS Console and create 2 secrets: 
@@ -254,7 +254,7 @@ kubectl create secret generic awssm-secret \
 > [!NOTE]
 > One of the best practices in Argo CD is the **App of Apps** pattern. Instead of defining each application separately, we use a **root Application** that manages multiple child applications, simplifying deployment and management.
 
-To implement the **App of Apps** pattern, we need to create an `app-of-apps.yaml` file in our repository. The beginning of this file is commented out. **Uncomment it and populate it with the following values**:
+To implement the **App of Apps** pattern, you need to create the `app-of-apps.yaml` file. The beginning of this file is commented out. **Uncomment it and populate the file with the following values**:
 
 - repoURL: `<Your GitHub Repository HTTPS URL>`
 - targetRevision: `HEAD`
@@ -295,7 +295,7 @@ Inside the **`argocd-apps`** directory, update the `argocd.yaml` file with the f
 - syncOptions: `CreateNamespace=true`
 - revisionHistoryLimit: `5`
 
-Once you have updated `argocd.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
+Once you have updated `argocd.yaml`, commit and push the changes to your **GitHub repository** and you will see the changes in your Argo CD UI. Next, you need to manually sync the `root` application to install Argo CD application.
 
 ### Step 4: Create an Argo CD Application for Ingress-Nginx
 
@@ -331,7 +331,7 @@ Inside the **`argocd-apps`** directory, update the `ingress-nginx.yaml` file wit
 - syncOptions: `CreateNamespace=true`
 - revisionHistoryLimit: `5`
 
-Once you have updated `ingress-nginx.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
+Once you have updated `ingress-nginx.yaml`, commit and push the changes to your **GitHub repository** and you will see the changes in your Argo CD UI. Next, you need to manually sync the `root` application to install Argo CD application.
 
 ### Step 5: Create an Argo CD Application for External Secrets
 
@@ -396,7 +396,7 @@ Inside the **`argocd-apps`** directory, update the `external-secrets.yaml` file 
 - syncOptions: `CreateNamespace=true`
 - revisionHistoryLimit: `5`
 
-Once you have updated `external-secrets.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
+Once you have updated `external-secrets.yaml`, commit and push the changes to your **GitHub repository** and you will see the changes in your Argo CD UI. Next, you need to manually sync the `root` application to install Argo CD application.
 
 ### Step 6: Create an Argo CD ApplicationSet for PostgreSQL
 
@@ -446,7 +446,7 @@ Inside the **`argocd-apps`** directory, update the `postgres.yaml` file with the
 - syncOptions: `CreateNamespace=true`
 - revisionHistoryLimit: `5`
 
-Once you have updated `postgres.yaml`, commit and push the changes to your **GitHub repository** and you should changes in your Argo CD UI. And you need to manually sync the `root` application to install Argo CD application.
+Once you have updated `postgres.yaml`, commit and push the changes to your **GitHub repository** and you will see the changes in your Argo CD UI. Next, you need to manually sync the `root` application to install Argo CD application.
 
 ## Creating Custom Helm Charts
 
@@ -473,6 +473,8 @@ Your task is to populate the template files using the values provided in `values
 > [!NOTE]
 > Not everything needs to be set through `values.yaml`. Some parameters can be hardcoded in template files if they are constant across all deployments. The key is to find a balance and avoid overcomplicating the chart by exposing every possible field in `values.yaml`, but ensure flexibility where needed.
 
+Commit and push the updated custom Helm charts to GitHub.
+
 ## GitHub Actions Configuring
 
 Your task is to update two GitHub workflow files: **`backend.yaml`** and **`frontend.yaml`**. Each workflow should build a Docker image, push it to a container registry, and update the Docker image tag in the Helm chart values. Make sure both files are located in the `.github/workflows` directory.
@@ -491,7 +493,7 @@ For the `backend.yaml` you should:
     contents: write
   ```
 
-- Add a step to Checkout Code using the `actions/checkout` action. This step will clone the repository so the workflow can access the files.
+- Add a step to checkout code using the `actions/checkout` action. This step will clone the repository so the workflow can access the files.
 
 - Add a step to configure AWS credentials with `aws-actions/configure-aws-credentials`, using the `AWS_ECR_ROLE_TO_ASSUME` and `AWS_REGION` secrets.
 
@@ -507,7 +509,7 @@ For the `backend.yaml` you should:
     run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_ENV
   ```
 
-- Add a step to build, tag, and push Docker Image to Amazon ECR Public:
+- Add a step to build, tag, and push Docker images to Amazon ECR Public:
 
   Set Environment Variables:
    - `AWS_ECR_REGISTRY`: The ECR registry URL obtained from the previous login step. 
@@ -626,13 +628,17 @@ Now that the setup is complete, it's time to **test the applications** in both e
    - Make sure that items created in **one environment** are **not accessible** in the other.
    - Since `dev` and `prod` use **separate databases**, data should not overlap.
 
+4. **Try updating some Helm charts to a newer version**
+
+Update the Helm chart version in one of the Argo CD applications by modifying the `targetRevision` field. After making changes, go to the Argo CD UI, compare the differences, and manually sync the application to apply the update.
+
 ## Further Recommendations
 
 Once you've tested the setup and confirmed everything works, take a moment to evaluate your efforts. This project is not easy, but it reflects real-world practices you'll see in actual work. Now, try to understand each part — Helm templating, Argo CD concepts like Application, ApplicationSet, and the App of Apps pattern, as well as External Secrets management. If something isn’t clear, take your time to explore and experiment. Learning these concepts will give you a strong foundation in Kubernetes and GitOps. Keep going — you’re building real, valuable skills!
 
 ## CleanUp
 
-After completing the project and testing your setup, make sure to clean up all resources to avoid unnecessary use of local resources:
+After completing the project and testing your setup, make sure to clean up all resources to avoid unnecessary use:
 
 - Delete the fake domains from the /etc/hosts file.
 - Remove the AWS resources if you don't need them anymore.
