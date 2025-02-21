@@ -472,7 +472,7 @@ I have already predefined a **Helm chart structure** for each service, which inc
 
 Inside the **`argocd-apps`** directory, update the `custom-apps.yaml` file with the following values:
 
-- Create a matrix generator with 2 lists generators. The first list should have our apps: `app: backend` and `app: frontend`. The second list should have our envs: `env: dev` and `env: prod`. And the result of our matrix will be: 4 Argo CD Applications: `backend-prod`, `frontend-prod`, `backend-dev`, and `frontend-dev`.
+- Create a matrix generator with 2 lists generators. The first list should have our apps: `app: backend` and `app: frontend`. The second list should have our envs: `env: dev` and `env: prod`. And the result of the matrix will be 4 Argo CD Applications: `backend-prod`, `frontend-prod`, `backend-dev`, and `frontend-dev`.
 
 - repoURL: `<Link to your GitHub repository>`
 - targetRevision: `HEAD`
