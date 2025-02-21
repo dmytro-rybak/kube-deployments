@@ -491,10 +491,10 @@ For the `backend.yaml` you should:
 
 - Add a step to Checkout Code using the `actions/checkout` action. This step will clone the repository so the workflow can access the files.
 
-- Add a step to configure AWS credentials using **IAM role assumption** with `aws-actions/configure-aws-credentials`, using the `AWS_ECR_ROLE_TO_ASSUME` and `AWS_REGION` secrets.
+- Add a step to configure AWS credentials with `aws-actions/configure-aws-credentials`, using the `AWS_ECR_ROLE_TO_ASSUME` and `AWS_REGION` secrets.
 
 > [!NOTE]
-> Always use **IAM role assumption** instead of access and secret keys whenever possible for better security and compliance.
+> Always use **IAM role assuming** instead of access and secret keys whenever possible for better security and compliance.
 
 - Add a step to login to Amazon ECR Public using the `aws-actions/amazon-ecr-login` action with the `registry-type` set to `public`. This step authenticates the workflow to push images to Amazon ECR Public.
 
