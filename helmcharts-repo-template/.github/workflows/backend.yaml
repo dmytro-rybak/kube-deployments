@@ -1,1 +1,6 @@
-# name: Build the backend image
+name: Build the backend image
+
+on:
+  workflow_dispatch:
+
+jobs: {}

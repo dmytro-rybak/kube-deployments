@@ -1,1 +1,6 @@
-# name: Build the frontend image
+name: Build the frontend image
+
+on:
+  workflow_dispatch:
+
+jobs: {}
