@@ -474,7 +474,7 @@ For `backend/ingress.yaml`:
 - /docs -> backend-service
 - /api -> backend-service
 
-For `backend/ingress.yaml`:
+For `frontend/ingress.yaml`:
 - / -> frontend-service
 
 For `backend/deployment.yaml`:
