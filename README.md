@@ -467,6 +467,39 @@ The YAML configuration files `values.yaml`, `values-dev.yaml`, and `values-prod.
 
 Your task is to populate the template files using the values provided in `values.yaml` for both the frontend and backend.
 
+> [!IMPORTANT]
+> In addition to values.yaml files, you will need the following config tips.
+
+For `backend/ingress.yaml`:
+- /docs -> backend-service
+- /api -> backend-service
+
+For `backend/ingress.yaml`:
+- / -> frontend-service
+
+For `backend/deployment.yaml`:
+```yaml
+initContainers:
+  - name: wait-for-postgres
+    image: cgr.dev/chainguard/wait-for-it
+    args:
+      - '$(POSTGRES_SERVER):$(POSTGRES_PORT)'
+    envFrom:
+      - secretRef:
+          name: {{ .Values.application }}-secret
+  - name: db-migrations
+    image: {{ .Values.deployment.image.repository }}:{{ .Values.deployment.image.tag }}
+    command:
+      - sh
+      - '-c'
+      - >-
+        python app/backend_pre_start.py && alembic upgrade head && python
+        app/initial_data.py
+    envFrom:
+      - secretRef:
+          name: {{ .Values.application }}-secret
+```
+
 > [!NOTE]
 > Not everything needs to be set through `values.yaml`. Some parameters can be hardcoded in template files if they are constant across all deployments. The key is to find a balance and avoid overcomplicating the chart by exposing every possible field in `values.yaml`, but ensure flexibility where needed.
 
