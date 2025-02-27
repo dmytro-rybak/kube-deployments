@@ -483,7 +483,7 @@ initContainers:
   - name: wait-for-postgres
     image: cgr.dev/chainguard/wait-for-it
     args:
-      - '$(POSTGRES_SERVER):$(POSTGRES_PORT)'
+      - "$(POSTGRES_SERVER):$(POSTGRES_PORT)"
     envFrom:
       - secretRef:
           name: {{ .Values.application }}-secret
@@ -491,10 +491,9 @@ initContainers:
     image: {{ .Values.deployment.image.repository }}:{{ .Values.deployment.image.tag }}
     command:
       - sh
-      - '-c'
-      - >-
-        python app/backend_pre_start.py && alembic upgrade head && python
-        app/initial_data.py
+      - -c
+      - "python app/backend_pre_start.py && alembic upgrade head && python
+        app/initial_data.py"
     envFrom:
       - secretRef:
           name: {{ .Values.application }}-secret
